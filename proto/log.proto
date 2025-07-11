@@ -1,0 +1,22 @@
+syntax="proto3";
+
+option go_package = "github.com/trex2004/logstream/proto";
+
+package proto;
+
+service LogService {
+  rpc SendLog(LogRequest) returns (LogResponse);
+}
+
+message LogRequest {
+  string service = 1;
+  string level = 2;
+  string timestamp = 3; // ISO format
+  string message = 4;
+  map<string, string> meta = 5;
+}
+
+message LogResponse {
+  bool success = 1;
+  string message = 2;
+}
