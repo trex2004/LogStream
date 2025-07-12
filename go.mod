@@ -3,6 +3,8 @@ module github.com/trex2004/logstream
 go 1.23.5
 
 require (
+	github.com/joho/godotenv v1.5.1
+	github.com/lib/pq v1.10.9
 	github.com/nats-io/nats.go v1.43.0
 	google.golang.org/grpc v1.73.0
 	google.golang.org/protobuf v1.36.6
