@@ -2,11 +2,13 @@ package db
 
 import (
 	"database/sql"
+	"encoding/json"
 	"log"
 	"os"
 
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
+	"github.com/trex2004/logstream/common/models"
 )
 
 type LogStoreDB struct {
@@ -19,7 +21,7 @@ func InitDB() (*LogStoreDB, error) {
 		log.Fatalf("Error loading .env file: %v", err)
 	}
 	
-	url := os.Getenv("POSTGRESQL_URL")
+	url := os.Getenv("POSTGRES_URL")
 	log.Printf("Connecting to database with URL: %s", url)
 	db, err := sql.Open("postgres", url)
 	if err != nil {
@@ -55,4 +57,21 @@ func (l *LogStoreDB) Close() error {
 	}
 	log.Println("Database connection closed successfully")
 	return nil
+}
+
+func InsertLogMessage(db *LogStoreDB, logMsg models.Log) error {
+	_, err := db.DB.Exec(`
+		INSERT INTO logs (service, level, timestamp, message, meta)
+		VALUES ($1, $2, $3, $4, $5)
+	`, logMsg.Service, logMsg.Level, logMsg.Timestamp, logMsg.Message, toJSONB(logMsg.Meta))
+	if err != nil {
+		return err
+	}
+	log.Println("Log message inserted successfully")
+	return nil
+}
+
+func toJSONB(m map[string]interface{}) []byte {
+	data, _ := json.Marshal(m)
+	return data
 }

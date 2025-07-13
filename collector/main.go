@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
 
 	"github.com/nats-io/nats.go"
 	"github.com/trex2004/logstream/common"
@@ -38,7 +39,7 @@ func (s *server) SendLog(ctx context.Context, req *pb.LogRequest) (*pb.LogRespon
 }
 
 func main() {
-    nc, err := nats.Connect(nats.DefaultURL)
+    nc, err := nats.Connect(os.Getenv("NATS_URL"))
     if err != nil {
         log.Fatalf("Error connecting to NATS: %v", err)
     }

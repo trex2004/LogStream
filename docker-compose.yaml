@@ -1,0 +1,38 @@
+services:
+  nats:
+    image: nats
+    ports:
+      - "4222:4222"
+    command: ["-js"]
+
+  db:
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: logdb
+    ports:
+      - "5432:5432"
+
+  collector:
+    build:
+      context: .
+      dockerfile: collector/Dockerfile
+    depends_on:
+      - nats
+    ports:
+      - "50051:50051"
+    environment:
+      - NATS_URL=${NATS_URL}
+
+  processor:
+    build:
+      context: .
+      dockerfile: processor/Dockerfile
+    depends_on:
+      - nats
+      - db
+    environment:
+      - NATS_URL=${NATS_URL}
+      - POSTGRES_URL=${POSTGRES_URL}
