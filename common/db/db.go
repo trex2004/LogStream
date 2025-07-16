@@ -75,3 +75,13 @@ func toJSONB(m map[string]interface{}) []byte {
 	data, _ := json.Marshal(m)
 	return data
 }
+
+func (l *LogStoreDB) Query(query string, args ...interface{}) (*sql.Rows, error) {
+	rows, err := l.DB.Query(query, args...)
+	if err != nil {
+		log.Printf("Error executing query: %v", err)
+		return nil, err
+	}
+	log.Printf("Query executed successfully: %s", query)
+	return rows, nil
+}
