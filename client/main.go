@@ -28,7 +28,7 @@ func main(){
 	for {
 		time.Sleep(5*time.Second)
 		res,err := client.SendLog(context.Background(), &pb.LogRequest{
-			Service:   "auth-service",
+			Service:   "network-service",
 			Level:     "ERROR",
 			Timestamp: time.Now().Format(time.RFC3339),
 			Message:   "This is a test log message",

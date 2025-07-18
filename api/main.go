@@ -54,7 +54,7 @@ func main(){
 
 		log.Printf("Executing query: %s with args: %v", query, args)
 
-		rows, err := LogStoreDB.Query(query, args...)
+		rows, err := LogStoreDB.DB.Query(query, args...)
 		if err != nil {
 			log.Printf("Error querying logs: %v", err)
 			c.JSON(500, gin.H{"error": "Internal Server Error"})
@@ -89,6 +89,61 @@ func main(){
 
 		c.JSON(200, logs)
 		
+	})
+
+	router.GET("/metrics/count", func(c *gin.Context){
+		service := c.Query("service")
+		level := c.Query("level")
+
+		query := "SELECT COUNT(*) FROM logs WHERE 1=1"
+		args := []interface{}{}
+		i := 1
+
+		if service != ""{
+			query += " AND service = $" + strconv.Itoa(i)
+			args = append(args, service)
+			i++
+		}
+		
+		if level != ""{
+			query += " AND level = $" + strconv.Itoa(i)
+			args = append(args, level)
+			i++
+		}
+
+		log.Printf("Executing count query: %s with args: %v", query, args)
+		var count int
+		err := LogStoreDB.QueryRow(query, args...).Scan(&count)
+		if err != nil {
+			log.Printf("Error querying count: %v", err)
+			c.JSON(500, gin.H{"error": "Internal Server Error"})
+			return
+		}
+		c.JSON(200, gin.H{"count": count})
+	})
+
+	router.GET("metrics/errors-per-service", func(c *gin.Context) {
+		query := `SELECT service, COUNT(*) as error_count FROM logs WHERE level = 'ERROR' GROUP BY service`
+		rows, err := LogStoreDB.Query(query)
+		if err != nil {
+			log.Printf("Error querying errors per service: %v", err)
+			c.JSON(500, gin.H{"error": "Internal Server Error"})
+			return
+		}
+		defer rows.Close()
+
+		errors := make(map[string]int)
+		for rows.Next() {
+			var service string
+			var errorCount int
+			if err := rows.Scan(&service, &errorCount); err != nil {
+				log.Printf("Error scanning row: %v", err)
+				c.JSON(500, gin.H{"error": "Internal Server Error"})
+				return
+			}
+			errors[service] = errorCount
+		}
+		c.JSON(200, errors)
 	})
 
 	log.Printf("LogStream API is running on port 8080")

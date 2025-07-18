@@ -85,3 +85,7 @@ func (l *LogStoreDB) Query(query string, args ...interface{}) (*sql.Rows, error)
 	log.Printf("Query executed successfully: %s", query)
 	return rows, nil
 }
+
+func (l *LogStoreDB) QueryRow(query string, args ...interface{}) *sql.Row {
+	return l.DB.QueryRow(query, args...)
+}
