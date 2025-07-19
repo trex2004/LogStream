@@ -146,6 +146,76 @@ func main(){
 		c.JSON(200, errors)
 	})
 
+	router.GET("/metrics/daily-logs", func(c *gin.Context){
+		daysStr := c.DefaultQuery("days", "7")
+		days, err := strconv.Atoi(daysStr)
+		if err != nil || days <= 0 {
+			log.Printf("Invalid 'days' value: %s", daysStr)
+			c.JSON(400, gin.H{"error": "Invalid 'days' parameter"})
+			return
+		}
+		query := `SELECT DATE(timestamp) , COUNT(*) FROM logs WHERE timestamp > NOW() - INTERVAL '` + strconv.Itoa(days)  + ` days' GROUP BY DATE(timestamp) ORDER BY DATE(timestamp) DESC`
+		log.Printf("Executing daily logs query: %s ", query)
+
+		rows, err := LogStoreDB.Query(query)
+		if err != nil {
+			log.Printf("Error querying daily logs: %v", err)
+			c.JSON(500, gin.H{"error": "Internal Server Error"})
+			return
+		}
+		defer rows.Close()
+
+		dailyLogs := make(map[string]int)
+		for rows.Next() {
+			var date string
+			var logCount int
+			if err := rows.Scan(&date, &logCount); err != nil {
+				log.Printf("Error scanning row: %v", err)
+				c.JSON(500, gin.H{"error": "Internal Server Error"})
+				return
+			}
+			dailyLogs[date]=logCount
+		}
+		
+		c.JSON(200, dailyLogs)
+	})
+	
+	router.GET("metrics/levels-distribution", func(c *gin.Context){
+		daysStr := c.DefaultQuery("days", "7")
+		days,err := strconv.Atoi(daysStr)	
+		if err!=nil {
+			log.Printf("Invalid days %s",daysStr)
+			c.JSON(500, gin.H{"error": "Internal Server Error"})
+			return
+		}
+		
+		query := `SELECT level, COUNT(*) FROM logs WHERE timestamp>NOW() - INTERVAL '`+ strconv.Itoa(days) +` days' GROUP BY level`
+		log.Printf("Executing daily level logs query: %s ", query)
+		
+		rows,err := LogStoreDB.Query(query)
+		if err!=nil{
+			log.Printf("Error querying daily level logs: %v", err)
+			c.JSON(500, gin.H{"error": "Internal Server Error"})
+			return
+		}
+		defer rows.Close()
+		
+		levelLogs := make(map[string]int)
+		for rows.Next() {
+			var level string
+			var count int
+			if err := rows.Scan(&level, &count); err!=nil {
+				log.Printf("Error scanning row: %v", err)
+				c.JSON(500, gin.H{"error": "Internal Server Error"})
+				return
+			}
+			levelLogs[level]=count
+		}
+
+		c.JSON(200, levelLogs)
+
+	})
+	
 	log.Printf("LogStream API is running on port 8080")
 	err = router.Run(":8080")
 	if err != nil {
