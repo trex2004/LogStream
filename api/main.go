@@ -183,18 +183,18 @@ func main(){
 	router.GET("metrics/levels-distribution", func(c *gin.Context){
 		daysStr := c.DefaultQuery("days", "7")
 		days,err := strconv.Atoi(daysStr)	
-		if err!=nil {
+		if err!=nil || days <= 0 {
 			log.Printf("Invalid days %s",daysStr)
 			c.JSON(500, gin.H{"error": "Internal Server Error"})
 			return
 		}
 		
 		query := `SELECT level, COUNT(*) FROM logs WHERE timestamp>NOW() - INTERVAL '`+ strconv.Itoa(days) +` days' GROUP BY level`
-		log.Printf("Executing daily level logs query: %s ", query)
+		log.Printf("Executing level logs query: %s ", query)
 		
 		rows,err := LogStoreDB.Query(query)
 		if err!=nil{
-			log.Printf("Error querying daily level logs: %v", err)
+			log.Printf("Error querying level logs: %v", err)
 			c.JSON(500, gin.H{"error": "Internal Server Error"})
 			return
 		}
@@ -213,6 +213,43 @@ func main(){
 		}
 
 		c.JSON(200, levelLogs)
+
+	})
+
+	router.GET("/metrics/services-activity", func (c *gin.Context){
+		daysStr := c.DefaultQuery("days","7")
+		days,err := strconv.Atoi(daysStr)
+		if err!=nil || days <= 0 {
+			log.Printf("Invalid Days")
+			c.JSON(500, gin.H{"error": "Internal Server Error"})
+			return
+		}
+
+		query := `SELECT service, COUNT(*) FROM logs WHERE timestamp>NOW() - INTERVAL '`+ strconv.Itoa(days) +` days' GROUP BY service ORDER BY COUNT(*) DESC`
+		log.Printf("Executing service logs query: %s ", query)
+		
+		rows,err := LogStoreDB.Query(query)
+		if err!=nil{
+			log.Printf("Error service level logs: %v", err)
+			c.JSON(500, gin.H{"error": "Internal Server Error"})
+			return
+		}
+		defer rows.Close()
+
+		serviceLogs := make(map[string]int)
+		for rows.Next(){
+			var service string 
+			var count int
+			if err:=rows.Scan(&service, &count); err!=nil {
+				log.Printf("Error scanning row: %v", err)
+				c.JSON(500, gin.H{"error": "Internal Server Error"})
+				return
+			}
+			serviceLogs[service]=count
+		}
+
+		c.JSON(200,serviceLogs)
+
 
 	})
 	
