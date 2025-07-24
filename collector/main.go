@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net"
@@ -26,10 +27,19 @@ type server struct {
 func (s *server) SendLog(ctx context.Context, req *pb.LogRequest) (*pb.LogResponse, error) {
     log.Printf("Received log from %s: %s", req.Service, req.Message)
 
-    logMsg := fmt.Sprintf(`{"service":"%s","level":"%s","timestamp":"%s","message":"%s"}`,req.Service, req.Level, req.Timestamp, req.Message)
+    meta,err := json.Marshal(req.Meta)
+    if err != nil {
+        log.Printf("Error marshalling meta: %v", err)
+        return &pb.LogResponse{Success: false, Message: "Failed to marshal meta"}, err
+    }
+
+
+    logMsg := fmt.Sprintf(`{"service":"%s","level":"%s","timestamp":"%s","message":"%s","meta":%s}`, req.Service, req.Level, req.Timestamp, req.Message, meta)
+
+    log.Printf("Publishing log message to NATS: %s", logMsg)
 
     subject := fmt.Sprintf("logs.%s.%s", req.Service, req.Level)
-    err := s.nc.Publish(subject, []byte(logMsg))
+    err = s.nc.Publish(subject, []byte(logMsg))
 	// log.Printf("Error publishing to NATS: %v", err)
     if err != nil {
         return &pb.LogResponse{Success: false, Message: "Failed to publish to NATS"}, err

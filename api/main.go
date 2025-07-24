@@ -2,6 +2,7 @@ package main
 
 import (
 	// "encoding/json"
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -281,10 +282,99 @@ func main(){
 		}
 
 		c.JSON(200,serviceLogs)
-
-
 	})
-	
+
+	router.GET("/logs/export", func(c *gin.Context) {
+		service := c.Query("service")
+		level := c.Query("level")
+		from := c.Query("from")
+		to := c.Query("to")
+		limitStr := c.DefaultQuery("limit", "100")
+
+		limit, err := strconv.Atoi(limitStr)
+		if err != nil || limit <= 0 {
+			log.Printf("Invalid 'limit' value: %s", limitStr)
+			c.JSON(400, gin.H{"error": "Invalid 'limit' parameter"})
+			return
+		}
+
+		query := "SELECT service, level, timestamp, message, meta FROM logs WHERE 1=1"
+		args := []interface{}{}
+		i := 1
+
+		if service != "" {
+			query += fmt.Sprintf(" AND service = $%d", i)
+			args = append(args, service)
+			i++
+		}
+		if level != "" {
+			query += fmt.Sprintf(" AND level = $%d", i)
+			args = append(args, level)
+			i++
+		}
+		if from != "" {
+			query += fmt.Sprintf(" AND timestamp >= $%d", i)
+			args = append(args, from)
+			i++
+		}
+		if to != "" {
+			query += fmt.Sprintf(" AND timestamp <= $%d", i)
+			args = append(args, to)
+			i++
+		}
+
+		query += fmt.Sprintf(" ORDER BY timestamp DESC LIMIT $%d", i)
+		args = append(args, limit)
+
+		log.Printf("Executing export query: %s with args: %v", query, args)
+
+		rows, err := LogStoreDB.Query(query, args...)
+		if err != nil {
+			log.Printf("Error querying logs for export: %v", err)
+			c.JSON(500, gin.H{"error": "Internal Server Error"})
+			return
+		}
+		defer rows.Close()
+
+		c.Header("Content-Disposition", "attachment; filename=logs.csv")
+		c.Header("Content-Type", "text/csv")
+
+		writer := csv.NewWriter(c.Writer)
+		defer writer.Flush()
+
+		writer.Write([]string{"Service", "Level", "Timestamp", "Message", "Meta"})
+
+		for rows.Next() {
+			var service, level, message string
+			var timestamp time.Time
+			var metaRaw []byte
+
+			if err := rows.Scan(&service, &level, &timestamp, &message, &metaRaw); err != nil {
+				log.Printf("Error scanning row for export: %v", err)
+				c.JSON(500, gin.H{"error": "Internal Server Error"})
+				return
+			}
+
+			meta := make(map[string]interface{})
+			if err := json.Unmarshal(metaRaw, &meta); err != nil {
+				log.Printf("Error decoding meta for export: %v", err)
+				meta = nil
+			}
+
+			log.Printf("Meta for export: %+v", meta)
+
+			writer.Write([]string{
+				service,
+				level,
+				timestamp.Format(time.RFC3339),
+				message,
+				string(metaRaw), // Write raw JSON for simplicity
+			})
+		}
+		
+	})
+
+
 	log.Printf("LogStream API is running on port 8080")
 	err = router.Run(":8080")
 	if err != nil {

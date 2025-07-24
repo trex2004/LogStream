@@ -39,7 +39,7 @@ func main(){
 		err := json.Unmarshal(msg.Data, &logMsg)
 		if err != nil {
 			log.Printf("Error unmarshalling log message: %v", err)
-			msg.Nak()
+			msg.Ack()
 			return
 		}
 
