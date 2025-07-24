@@ -3,8 +3,10 @@ package main
 import (
 	// "encoding/json"
 	"encoding/json"
+	"fmt"
 	"log"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/trex2004/logstream/common/db"
@@ -24,11 +26,30 @@ func main(){
 		c.String(200, "LogStream API is running")
 	})
 
+	// make log into a model in common
 	router.GET("/logs", func(c *gin.Context) {
 
 		service := c.Query("service")
 		level := c.Query("level")
-		limit := c.DefaultQuery("limit", "100")
+		from := c.Query("from")
+		to := c.Query("to")
+
+		limitStr := c.DefaultQuery("limit", "100")
+		offsetStr := c.DefaultQuery("offset", "0")
+
+		limit,err := strconv.Atoi(limitStr)
+		if err!=nil || limit<=0{
+			log.Printf("Invalid 'limit' value: %s", limitStr)
+			c.JSON(400, gin.H{"error": "Invalid 'limit' parameter"})
+			return
+		}
+		
+		offset,err := strconv.Atoi(offsetStr)
+		if err!=nil || offset<0{
+			log.Printf("Invalid 'offset' value: %s", offsetStr)
+			c.JSON(400, gin.H{"error": "Invalid 'offset' parameter"})
+			return
+		}
 
 		query := "SELECT service, level, timestamp, message, meta FROM logs WHERE 1=1"
 		args := []interface{}{}
@@ -45,12 +66,21 @@ func main(){
 			args = append(args, level)
 			i++
 		}
+		
+		if from != "" {
+			query += " AND timestamp >= $" + strconv.Itoa(i)
+			args = append(args, from)
+			i++
+		}
 
-		query += " ORDER BY timestamp DESC"
+		if to != "" {
+			query += " AND timestamp <= $" + strconv.Itoa(i)
+			args = append(args, to)
+			i++
+		}
 
-		query += " LIMIT $" + strconv.Itoa(i)
-		args = append(args, limit)
-		i++
+		query += fmt.Sprintf(" ORDER BY timestamp DESC LIMIT $%d OFFSET $%d", i, i+1)
+		args = append(args, limit, offset)
 
 		log.Printf("Executing query: %s with args: %v", query, args)
 
@@ -64,9 +94,8 @@ func main(){
 
 		logs := make([]map[string]interface{}, 0)
 		for rows.Next() {
-			log.Printf("Processing row...")
 			var service, level, message string
-			var timestamp string
+			var timestamp time.Time
 			var meta map[string]interface{}
 			var metaRaw []byte
 
@@ -76,12 +105,15 @@ func main(){
 				return
 			}
 
-			json.Unmarshal(metaRaw, &meta)
+			if err := json.Unmarshal(metaRaw, &meta); err != nil {
+				log.Printf("Error decoding meta: %v", err)
+				meta = nil
+			}
 
 			logs = append(logs, gin.H{
 				"service":   service,
 				"level":     level,
-				"timestamp": timestamp,
+				"timestamp": timestamp.Format(time.RFC3339),
 				"message":   message,
 				"meta":      meta,
 			})
