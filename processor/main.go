@@ -34,6 +34,11 @@ func main(){
 		log.Fatalf("Error creating log store table: %v", err)
 	}
 
+	err = LogStoreDB.CreateAlertRulesTable()
+	if err != nil {
+		log.Fatalf("Error creating alert rule table: %v", err)
+	}
+
 	_,err = js.Subscribe("logs.*.*", func(msg *nats.Msg) {
 		var logMsg models.Log
 		err := json.Unmarshal(msg.Data, &logMsg)

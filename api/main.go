@@ -11,9 +11,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/trex2004/logstream/common/db"
+	"github.com/trex2004/logstream/common/models"
 )
 
-func main(){
+func main() {
 
 	LogStoreDB, err := db.InitDB()
 	if err != nil {
@@ -38,15 +39,15 @@ func main(){
 		limitStr := c.DefaultQuery("limit", "100")
 		offsetStr := c.DefaultQuery("offset", "0")
 
-		limit,err := strconv.Atoi(limitStr)
-		if err!=nil || limit<=0{
+		limit, err := strconv.Atoi(limitStr)
+		if err != nil || limit <= 0 {
 			log.Printf("Invalid 'limit' value: %s", limitStr)
 			c.JSON(400, gin.H{"error": "Invalid 'limit' parameter"})
 			return
 		}
-		
-		offset,err := strconv.Atoi(offsetStr)
-		if err!=nil || offset<0{
+
+		offset, err := strconv.Atoi(offsetStr)
+		if err != nil || offset < 0 {
 			log.Printf("Invalid 'offset' value: %s", offsetStr)
 			c.JSON(400, gin.H{"error": "Invalid 'offset' parameter"})
 			return
@@ -67,7 +68,7 @@ func main(){
 			args = append(args, level)
 			i++
 		}
-		
+
 		if from != "" {
 			query += " AND timestamp >= $" + strconv.Itoa(i)
 			args = append(args, from)
@@ -118,13 +119,13 @@ func main(){
 				"message":   message,
 				"meta":      meta,
 			})
-    	}
+		}
 
 		c.JSON(200, logs)
-		
+
 	})
 
-	router.GET("/metrics/count", func(c *gin.Context){
+	router.GET("/metrics/count", func(c *gin.Context) {
 		service := c.Query("service")
 		level := c.Query("level")
 
@@ -132,13 +133,13 @@ func main(){
 		args := []interface{}{}
 		i := 1
 
-		if service != ""{
+		if service != "" {
 			query += " AND service = $" + strconv.Itoa(i)
 			args = append(args, service)
 			i++
 		}
-		
-		if level != ""{
+
+		if level != "" {
 			query += " AND level = $" + strconv.Itoa(i)
 			args = append(args, level)
 			i++
@@ -179,7 +180,7 @@ func main(){
 		c.JSON(200, errors)
 	})
 
-	router.GET("/metrics/daily-logs", func(c *gin.Context){
+	router.GET("/metrics/daily-logs", func(c *gin.Context) {
 		daysStr := c.DefaultQuery("days", "7")
 		days, err := strconv.Atoi(daysStr)
 		if err != nil || days <= 0 {
@@ -187,7 +188,7 @@ func main(){
 			c.JSON(400, gin.H{"error": "Invalid 'days' parameter"})
 			return
 		}
-		query := `SELECT DATE(timestamp) , COUNT(*) FROM logs WHERE timestamp > NOW() - INTERVAL '` + strconv.Itoa(days)  + ` days' GROUP BY DATE(timestamp) ORDER BY DATE(timestamp) DESC`
+		query := `SELECT DATE(timestamp) , COUNT(*) FROM logs WHERE timestamp > NOW() - INTERVAL '` + strconv.Itoa(days) + ` days' GROUP BY DATE(timestamp) ORDER BY DATE(timestamp) DESC`
 		log.Printf("Executing daily logs query: %s ", query)
 
 		rows, err := LogStoreDB.Query(query)
@@ -207,62 +208,62 @@ func main(){
 				c.JSON(500, gin.H{"error": "Internal Server Error"})
 				return
 			}
-			dailyLogs[date]=logCount
+			dailyLogs[date] = logCount
 		}
-		
+
 		c.JSON(200, dailyLogs)
 	})
-	
-	router.GET("metrics/levels-distribution", func(c *gin.Context){
+
+	router.GET("metrics/levels-distribution", func(c *gin.Context) {
 		daysStr := c.DefaultQuery("days", "7")
-		days,err := strconv.Atoi(daysStr)	
-		if err!=nil || days <= 0 {
-			log.Printf("Invalid days %s",daysStr)
+		days, err := strconv.Atoi(daysStr)
+		if err != nil || days <= 0 {
+			log.Printf("Invalid days %s", daysStr)
 			c.JSON(500, gin.H{"error": "Internal Server Error"})
 			return
 		}
-		
-		query := `SELECT level, COUNT(*) FROM logs WHERE timestamp>NOW() - INTERVAL '`+ strconv.Itoa(days) +` days' GROUP BY level`
+
+		query := `SELECT level, COUNT(*) FROM logs WHERE timestamp>NOW() - INTERVAL '` + strconv.Itoa(days) + ` days' GROUP BY level`
 		log.Printf("Executing level logs query: %s ", query)
-		
-		rows,err := LogStoreDB.Query(query)
-		if err!=nil{
+
+		rows, err := LogStoreDB.Query(query)
+		if err != nil {
 			log.Printf("Error querying level logs: %v", err)
 			c.JSON(500, gin.H{"error": "Internal Server Error"})
 			return
 		}
 		defer rows.Close()
-		
+
 		levelLogs := make(map[string]int)
 		for rows.Next() {
 			var level string
 			var count int
-			if err := rows.Scan(&level, &count); err!=nil {
+			if err := rows.Scan(&level, &count); err != nil {
 				log.Printf("Error scanning row: %v", err)
 				c.JSON(500, gin.H{"error": "Internal Server Error"})
 				return
 			}
-			levelLogs[level]=count
+			levelLogs[level] = count
 		}
 
 		c.JSON(200, levelLogs)
 
 	})
 
-	router.GET("/metrics/services-activity", func (c *gin.Context){
-		daysStr := c.DefaultQuery("days","7")
-		days,err := strconv.Atoi(daysStr)
-		if err!=nil || days <= 0 {
+	router.GET("/metrics/services-activity", func(c *gin.Context) {
+		daysStr := c.DefaultQuery("days", "7")
+		days, err := strconv.Atoi(daysStr)
+		if err != nil || days <= 0 {
 			log.Printf("Invalid Days")
 			c.JSON(500, gin.H{"error": "Internal Server Error"})
 			return
 		}
 
-		query := `SELECT service, COUNT(*) FROM logs WHERE timestamp>NOW() - INTERVAL '`+ strconv.Itoa(days) +` days' GROUP BY service ORDER BY COUNT(*) DESC`
+		query := `SELECT service, COUNT(*) FROM logs WHERE timestamp>NOW() - INTERVAL '` + strconv.Itoa(days) + ` days' GROUP BY service ORDER BY COUNT(*) DESC`
 		log.Printf("Executing service logs query: %s ", query)
-		
-		rows,err := LogStoreDB.Query(query)
-		if err!=nil{
+
+		rows, err := LogStoreDB.Query(query)
+		if err != nil {
 			log.Printf("Error service level logs: %v", err)
 			c.JSON(500, gin.H{"error": "Internal Server Error"})
 			return
@@ -270,18 +271,18 @@ func main(){
 		defer rows.Close()
 
 		serviceLogs := make(map[string]int)
-		for rows.Next(){
-			var service string 
+		for rows.Next() {
+			var service string
 			var count int
-			if err:=rows.Scan(&service, &count); err!=nil {
+			if err := rows.Scan(&service, &count); err != nil {
 				log.Printf("Error scanning row: %v", err)
 				c.JSON(500, gin.H{"error": "Internal Server Error"})
 				return
 			}
-			serviceLogs[service]=count
+			serviceLogs[service] = count
 		}
 
-		c.JSON(200,serviceLogs)
+		c.JSON(200, serviceLogs)
 	})
 
 	router.GET("/logs/export", func(c *gin.Context) {
@@ -371,9 +372,58 @@ func main(){
 				string(metaRaw), // Write raw JSON for simplicity
 			})
 		}
-		
+
 	})
 
+	router.POST("/alerts", func(c *gin.Context) {
+		var alert models.AlertRule
+
+		if err := c.BindJSON(&alert); err != nil {
+			log.Printf("Error binding alert rule: %v", err)
+			c.JSON(400, gin.H{"error": "Invalid request body"})
+			return
+		}
+		//add more verificcation here
+		if alert.Name == "" || alert.Action == "" {
+			log.Printf("Missing required fields in alert rule")
+			c.JSON(400, gin.H{"error": "Name and Action are required fields"})
+			return
+		}
+		if alert.Interval == "" {
+			alert.Interval = "5m"
+		}
+		if err := LogStoreDB.InsertAlertRule(alert); err != nil {
+			log.Printf("Error inserting alert rule: %v", err)
+			c.JSON(500, gin.H{"error": "Internal Server Error"})
+			return
+		}
+		log.Printf("Alert rule created successfully: %+v", alert)
+		c.JSON(201, gin.H{"message": "Alert rule created successfully", "alert": alert})
+	})
+
+	router.GET("/alerts", func(c *gin.Context) {
+		query := "Select * from alert_rules"
+
+		rows,err := LogStoreDB.Query(query)
+		if err!=nil {
+			log.Printf("Error querying for logs...")
+			c.JSON(500,gin.H{"error":"Internal Server error"})
+			return
+		}
+		defer rows.Close()
+
+		alerts := make([]models.AlertRule,0)
+		for rows.Next() {
+			var alert models.AlertRule
+			if err := rows.Scan(&alert.ID, &alert.Name, &alert.Service, &alert.Level, &alert.Keyword, &alert.Field, &alert.Condition, &alert.Threshold, &alert.Interval, &alert.Action, &alert.Enabled); err != nil {
+				log.Printf("Error scanning alert rule: %v", err)
+				c.JSON(500, gin.H{"error": "Internal Server Error"})
+				return
+			}
+			alerts = append(alerts, alert)
+		}
+		c.JSON(200, alerts)
+	})
 
 	log.Printf("LogStream API is running on port 8080")
 	err = router.Run(":8080")

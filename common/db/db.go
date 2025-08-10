@@ -51,6 +51,28 @@ func (l *LogStoreDB) CreateLogStoreTable() error {
 	return nil
 }
 
+func (l *LogStoreDB) CreateAlertRulesTable() error {
+	if _,err := l.DB.Exec(`
+		CREATE TABLE IF NOT EXISTS alert_rules (
+			id SERIAL PRIMARY KEY,
+			name TEXT NOT NULL,
+			service TEXT,
+			level TEXT,
+			keyword TEXT,
+			field TEXT,
+			condition TEXT,
+			threshold TEXT,
+			interval TEXT,
+			action TEXT NOT NULL,
+			enabled BOOLEAN DEFAULT TRUE
+		);
+		`); err!=nil{
+			return err
+	}
+	log.Println("Alert Rule table successfully created")
+	return nil
+}
+
 func (l *LogStoreDB) Close() error {
 	if err := l.DB.Close(); err != nil {
 		return err
@@ -59,6 +81,7 @@ func (l *LogStoreDB) Close() error {
 	return nil
 }
 
+//what is this?? change this next ,, what have i even done??
 func InsertLogMessage(db *LogStoreDB, logMsg models.Log) error {
 	_, err := db.DB.Exec(`
 		INSERT INTO logs (service, level, timestamp, message, meta)
@@ -88,4 +111,28 @@ func (l *LogStoreDB) Query(query string, args ...interface{}) (*sql.Rows, error)
 
 func (l *LogStoreDB) QueryRow(query string, args ...interface{}) *sql.Row {
 	return l.DB.QueryRow(query, args...)
+}
+
+func (l *LogStoreDB) InsertAlertRule(alert models.AlertRule) error {
+	_, err := l.DB.Exec(`
+		INSERT INTO alert_rules (
+			name, service, level, keyword, field, condition, threshold, interval, action, enabled
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+	`, 
+		alert.Name, 
+		alert.Service, 
+		alert.Level, 
+		alert.Keyword, 
+		alert.Field, 
+		alert.Condition, 
+		alert.Threshold, 
+		alert.Interval, 
+		alert.Action, 
+		alert.Enabled,
+	)
+	if err != nil {
+		return err
+	}
+	log.Printf("Alert successfully inserted")
+	return nil
 }
