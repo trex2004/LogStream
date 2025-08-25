@@ -1,18 +1,23 @@
 package models
 
-import "time"
+import (
+	"time"
+
+	"gorm.io/datatypes"
+)
 
 type Log struct {
-	Service  string          `json:"service"`
-	Level    string          `json:"level"`
-	Timestamp time.Time          `json:"timestamp"`
-	Message  string          `json:"message"`
-	Meta     map[string]interface{} `json:"meta"`
+	ID        uint           `gorm:"primaryKey" json:"id"`
+	Service   string         `json:"service"`
+	Level     string         `json:"level"`
+	Timestamp time.Time      `json:"timestamp"`
+	Message   string         `json:"message"`
+	Meta      datatypes.JSON `json:"meta"` // stored as JSONB
 }
 
 type AlertRule struct {
-	ID        int
-	Name      string  `json:"name"`
+	ID        int      `gorm:"primaryKey" json:"id"`
+	Name      string   `json:"name"`
 	Service   string   `json:"service"` // optional
 	Level     string   `json:"level"` // optional
 	Keyword   string   `json:"keyword"` // match in message (optional)
